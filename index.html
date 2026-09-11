@@ -4098,8 +4098,17 @@ function submitMeeting() {
     fee:      amount + '円'
   });
 
-  fetch(MEETING_GAS + '?' + params.toString(), { method: 'GET', mode: 'no-cors' })
-    .then(() => {
+  fetch(MEETING_GAS + '?' + params.toString(), { method: 'GET', mode: 'cors' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.result === 'conflict') {
+        msg.style.color = 'red';
+        msg.textContent = '※ ' + (data.message || 'ご希望の日時は既に他の予約と重なっています。別の日時をお選びください。');
+        btn.disabled = false;
+        btn.textContent = '🏛 申請する';
+        checkMeetingConflict();
+        return;
+      }
       msg.style.color = 'green';
       msg.textContent = '✅ 申請を受け付けました。管理組合より結果をご連絡します。';
       btn.textContent = '送信済み';
@@ -4155,10 +4164,11 @@ function renderApprovals() {
   fetch(APPROVAL_GAS + '?action=getMeetingRequests&t=' + Date.now(), { method: 'GET', mode: 'cors' })
     .then(r => r.json())
     .then(data => {
-      const items = (data.requests || []).filter(r => r.status === '受付済');
+      const items = (data.requests || []).filter(r => r.status === '受付済' || r.status === '重複エラー');
       if (!items.length) { mList.innerHTML = ''; mEmpty.style.display = 'block'; return; }
       mEmpty.style.display = 'none';
       mList.innerHTML = items.map(r => apvCard(
+        (r.status === '重複エラー' ? '⚠ 重複あり<br>' : '') +
         `号室：${esc(r.room)}　氏名：${esc(r.name)}<br>目的：${esc(r.purpose)}　区分：${esc(r.category)}<br>日時：${esc(r.date)} ${esc(r.startTm)}〜${esc(r.endTm)}<br>使用料：${esc(r.fee)}`,
         r.row, 'meeting'
       )).join('');

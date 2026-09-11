@@ -3707,33 +3707,68 @@ async function rmPushSend() {
 // ── 駐車場申請 ──
 const PARKING_GAS = GAS_URL;
 
-// 掲示板用：今月の駐車場・集会室 利用状況を簡易カレンダー表示（承認済みの予約がある日をマーカー表示）
-function renderUsageCalendar() {
+// 掲示板用：駐車場・集会室 利用状況カレンダー（前月/翌月切り替え、タップで時間帯表示、種別を色分け）
+let usageCalYear, usageCalMonth;
+
+function renderUsageCalendar(offset) {
   const wrap = document.getElementById('usage-cal-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '読み込み中...';
   const now = new Date();
-  const year = now.getFullYear(), month = now.getMonth() + 1;
+  if (usageCalYear === undefined) { usageCalYear = now.getFullYear(); usageCalMonth = now.getMonth() + 1; }
+  if (offset) {
+    usageCalMonth += offset;
+    if (usageCalMonth > 12) { usageCalMonth = 1; usageCalYear++; }
+    if (usageCalMonth < 1)  { usageCalMonth = 12; usageCalYear--; }
+  }
+  const year = usageCalYear, month = usageCalMonth;
+  wrap.innerHTML = '読み込み中...';
 
   fetch(GAS_URL + '?action=getMonthlyUsageCalendar&year=' + year + '&month=' + month + '&t=' + Date.now(), { method: 'GET', mode: 'cors' })
     .then(r => r.json())
     .then(data => {
-      const busyDays = new Set(data.days || []);
+      const dayMap = data.days || {};
+      window.__usageCalDayMap = dayMap;
       const daysInMonth = new Date(year, month, 0).getDate();
-      let html = '<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:8px">📅 ' + year + '年' + month + '月　駐車場・集会室 利用状況（色つき＝予約あり）</div>';
+
+      let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        + '<button onclick="renderUsageCalendar(-1)" style="border:1px solid var(--bd);background:var(--bg);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--tx);font-size:13px">←</button>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--tx)">📅 ' + year + '年' + month + '月　利用状況</div>'
+        + '<button onclick="renderUsageCalendar(1)" style="border:1px solid var(--bd);background:var(--bg);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--tx);font-size:13px">→</button>'
+        + '</div>';
+      html += '<div style="display:flex;gap:12px;font-size:11px;color:var(--tx2);margin-bottom:6px">'
+        + '<span>🅿️ 駐車場</span><span>🏛 集会室</span><span>※日付をタップすると時間帯を表示</span></div>';
       html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
       for (let d = 1; d <= daysInMonth; d++) {
         const key = year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-        const busy = busyDays.has(key);
-        html += '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:12px;' +
-          (busy ? 'background:#FFD54F;color:#5d4200;font-weight:700' : 'background:var(--bg);color:var(--tx2);border:1px solid var(--bd)') +
-          '">' + d + '</div>';
+        const entries = dayMap[key] || [];
+        const hasParking = entries.some(e => e.type === 'parking');
+        const hasMeeting = entries.some(e => e.type === 'meeting');
+        let style;
+        if (hasParking && hasMeeting) style = 'background:linear-gradient(135deg,#FFD54F 50%,#64B5F6 50%);color:#222';
+        else if (hasParking)          style = 'background:#FFD54F;color:#5d4200';
+        else if (hasMeeting)          style = 'background:#64B5F6;color:#0d3a66';
+        else                          style = 'background:var(--bg);color:var(--tx2);border:1px solid var(--bd)';
+        const icon = (hasParking ? '🅿️' : '') + (hasMeeting ? '🏛' : '');
+        html += '<div onclick="showUsageDay(\'' + key + '\')" style="cursor:pointer;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:700;' + style + '">'
+          + '<div>' + d + '</div>'
+          + (icon ? '<div style="font-size:9px;font-weight:400">' + icon + '</div>' : '')
+          + '</div>';
       }
-      html += '</div>';
+      html += '</div><div id="usage-cal-detail" style="margin-top:10px;font-size:12px;color:var(--tx)"></div>';
       wrap.innerHTML = html;
     })
     .catch(() => { wrap.innerHTML = '<p style="color:red;font-size:12px">取得に失敗しました。</p>'; });
 }
+
+function showUsageDay(key) {
+  const detail = document.getElementById('usage-cal-detail');
+  if (!detail) return;
+  const entries = (window.__usageCalDayMap || {})[key] || [];
+  if (!entries.length) { detail.innerHTML = key + '：予約はありません。'; return; }
+  const lines = entries.map(e => (e.type === 'parking' ? '🅿️ 駐車場' : '🏛 集会室') + '　' + e.start + '〜' + e.end);
+  detail.innerHTML = '<b>' + key + '</b><br>' + lines.join('<br>');
+}
+
 
 function calcParkingFee() {
   const start = document.getElementById('pk-start').value;

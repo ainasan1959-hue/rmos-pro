@@ -4025,7 +4025,7 @@ function checkMeetingConflict() {
     if (overlaps.length) {
       wrap.style.display = 'block';
       wrap.innerHTML = '⚠ 同じ日の ' + overlaps.map(b => b.start + '〜' + b.end + '（' + b.purpose + '）').join('、') +
-        ' に既存の申込みがあります。時間の重複は理事会にて調整しますので、そのまま申請いただいて構いません。';
+        ' に既存の申込みがあります。この時間帯では申請できませんので、別の日時でお願いします。';
     } else {
       wrap.style.display = 'none';
     }

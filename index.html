@@ -3771,7 +3771,7 @@ function renderParking() {
   sel.innerHTML = '<option value="">読み込み中...</option>';
   wrap.innerHTML = '';
 
-  const CSV_MASTER = 'https://docs.google.com/spreadsheets/d/1xxceOMc2FvShqbUnPK6bHHhC-Cd6XeYSl0yQ2whutVw/export?format=csv&gid=8713510&t=' + Date.now();
+  const CSV_MASTER = 'https://docs.google.com/spreadsheets/d/1ryHMQLVy2gcYqIWJ4M63AIoXaswBSvTaMf_dGeeQR64/export?format=csv&gid=8713510&t=' + Date.now(); // ★テスト用スプレッドシートに差し替え済み
   fetch(CSV_MASTER, { cache: 'no-store' })
     .then(r => r.text())
     .then(csv => {

@@ -3765,7 +3765,12 @@ function showUsageDay(key) {
   if (!detail) return;
   const entries = (window.__usageCalDayMap || {})[key] || [];
   if (!entries.length) { detail.innerHTML = key + '：予約はありません。'; return; }
-  const lines = entries.map(e => (e.type === 'parking' ? '🅿️ 駐車場' : '🏛 集会室') + '　' + e.start + '〜' + e.end);
+  const lines = entries.map(e => {
+    if (e.type === 'parking') {
+      return '🅿️ 駐車場' + (e.lot ? '（区画' + e.lot + '）' : '') + '　' + e.start + '〜' + e.end;
+    }
+    return '🏛 集会室' + (e.name ? '（' + e.name + '）' : '') + '　' + e.start + '〜' + e.end;
+  });
   detail.innerHTML = '<b>' + key + '</b><br>' + lines.join('<br>');
 }
 
@@ -3946,6 +3951,7 @@ function submitParking() {
       document.getElementById('pk-fee-wrap').style.display = 'none';
       document.getElementById('pk-lead-warn').style.display = 'none';
       renderUsageCalendar();
+      setTimeout(() => { btn.disabled = false; btn.textContent = '🅿️ 申請する'; }, 2000);
     })
     .catch(() => {
       msg.style.color = 'red';
@@ -4102,6 +4108,7 @@ function submitMeeting() {
       document.getElementById('mt-fee-wrap').style.display = 'none';
       document.getElementById('mt-conflict-wrap').style.display = 'none';
       document.getElementById('mt-time-warn').style.display = 'none';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '🏛 申請する'; }, 2000);
     })
     .catch(() => {
       msg.style.color = 'red';

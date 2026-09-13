@@ -2634,6 +2634,27 @@ function renderAnswers(listId,emptyId){
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 /* ===== 個別回答確認（居住者・理事会・修繕委員 共通／部屋番号のみで照合／パスワードなし） ===== */
+// 個別回答の「非表示（端末内のみ）」管理：管理組合側の記録は消さず、
+// この端末のブラウザだけで、もう見なくてよい履歴を隠す（localStorage）。
+function getHiddenMyAnswers_(room) {
+  try {
+    const raw = localStorage.getItem('rmos_hidden_myans_' + room);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function hideMyAnswer_(room, rowId, cardEl) {
+  try {
+    const hidden = getHiddenMyAnswers_(room);
+    if (!hidden.includes(rowId)) hidden.push(rowId);
+    localStorage.setItem('rmos_hidden_myans_' + room, JSON.stringify(hidden));
+  } catch (e) {}
+  if (cardEl) {
+    cardEl.style.transition = 'opacity .2s';
+    cardEl.style.opacity = '0';
+    setTimeout(() => cardEl.remove(), 200);
+  }
+}
+
 function loadMyAnswers(suffix){
   suffix=suffix||'';
   const room=(document.getElementById('my-ans-room'+suffix).value||'').trim();
@@ -2648,25 +2669,35 @@ function loadMyAnswers(suffix){
     .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
     .then(data=>{
       list.innerHTML='';
-      if(!data||data.length===0){
+      const hidden = getHiddenMyAnswers_(room);
+      const visible = (data || []).filter(row => !hidden.includes(row.row));
+      if(!visible.length){
         empty.style.display='block';
         empty.textContent='現在、'+esc(room)+'号室あての個別回答はありません。';
         return;
       }
       empty.style.display='none';
-      data.forEach(row=>{
+      visible.forEach(row=>{
         const div=document.createElement('div');
         div.style.cssText='border:1px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:10px;background:var(--sf)';
         div.innerHTML=
           '<div style="padding:10px 13px;background:var(--sf2);display:flex;justify-content:space-between;align-items:center;gap:8px">'+
             '<span style="font-size:13px;font-weight:500">'+esc(row.message)+'</span>'+
-            '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--ac-bg);color:var(--ac);flex-shrink:0">'+esc(row.category)+'</span>'+
+            '<span style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+
+              '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--ac-bg);color:var(--ac)">'+esc(row.category)+'</span>'+
+              '<button class="my-ans-hide-btn" style="border:none;background:var(--bg);color:var(--tx2);width:24px;height:24px;border-radius:50%;font-size:13px;cursor:pointer;line-height:1" title="この履歴を非表示にする">✕</button>'+
+            '</span>'+
           '</div>'+
           '<div style="padding:10px 13px;font-size:13px;color:var(--tx2);border-top:1px solid var(--bd)">'+
             '<div style="font-size:11px;font-weight:700;color:var(--gn);margin-bottom:4px">▶ 理事会からの回答（'+esc(room)+'号室あて）</div>'+
             '<div style="line-height:1.75">'+esc(row.answer)+'</div>'+
             '<div style="font-size:11px;color:var(--tx2);margin-top:6px">受付：'+esc(row.date)+'</div>'+
           '</div>';
+        div.querySelector('.my-ans-hide-btn').addEventListener('click', () => {
+          if (confirm('この履歴をこの端末の画面から非表示にしますか？\n（管理組合側の記録は消えません。もう一度号室で確認すると再表示されます）')) {
+            hideMyAnswer_(room, row.row, div);
+          }
+        });
         list.appendChild(div);
       });
     })
